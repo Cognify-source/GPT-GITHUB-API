@@ -23,8 +23,14 @@ app.get("/tree", async (req, res) => {
     const response = await axios.get(url, { headers });
     res.json(response.data);
   } catch (err) {
-    res.status(err.response?.status || 500).json(err.response?.data || { error: "Unknown error" });
-  }
+  console.error("GitHub API error:", err.message);
+  console.error(err.response?.data);
+  res.status(err.response?.status || 500).json({
+    error: err.message,
+    githubResponse: err.response?.data || null
+  });
+}
+
 });
 
 app.get("/file", async (req, res) => {
