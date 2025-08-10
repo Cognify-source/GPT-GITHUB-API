@@ -1,5 +1,6 @@
 const express = require("express");
 const axios = require("axios");
+const serverless = require("serverless-http");
 
 const app = express();
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
@@ -29,7 +30,7 @@ app.get("/ping", (req, res) => {
   });
 });
 
-// Lista filer i repo
+// Lista filer
 app.get("/tree", async (req, res) => {
   const { owner, repo, path = "" } = req.query;
   if (!owner || !repo) return res.status(400).json({ error: "owner och repo krävs" });
@@ -42,7 +43,7 @@ app.get("/tree", async (req, res) => {
   }
 });
 
-// Hämta filinnehåll
+// Hämta fil
 app.get("/file", async (req, res) => {
   const { owner, repo, path } = req.query;
   if (!owner || !repo || !path) return res.status(400).json({ error: "owner, repo och path krävs" });
@@ -101,3 +102,4 @@ app.post("/pull", async (req, res) => {
 });
 
 module.exports = app;
+module.exports.handler = serverless(app);
