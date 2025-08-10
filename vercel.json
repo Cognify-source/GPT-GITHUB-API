@@ -10,6 +10,7 @@
     { "src": "/commit", "dest": "/index.js" },
     { "src": "/pull", "dest": "/index.js" },
     { "src": "/merge", "dest": "/index.js" },
-    { "src": "/delete-branch", "dest": "/index.js" }
+    { "src": "/delete-branch", "dest": "/index.js" },
+    { "src": "/branches", "dest": "/index.js" }
   ]
 }

@@ -161,6 +161,37 @@ app.delete("/delete-branch", async (req, res) => {
   }
 });
 
+// List all branches in a repo
+app.get('/branches', async (req, res) => {
+  const { owner, repo } = req.query;
+
+  if (!owner || !repo) {
+    return res.status(400).json({ error: "owner och repo krävs som query-parametrar" });
+  }
+
+  try {
+    const url = `https://api.github.com/repos/${owner}/${repo}/branches`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `token ${process.env.GITHUB_TOKEN}`,
+        Accept: 'application/vnd.github.v3+json'
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      return res.status(response.status).json({ error });
+    }
+
+    const data = await response.json();
+    // Return only branch names for simplicity
+    const branchNames = data.map(branch => branch.name);
+    res.json({ branches: branchNames });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 GPT-GITHUB-API is running on port ${PORT}`);
 });
