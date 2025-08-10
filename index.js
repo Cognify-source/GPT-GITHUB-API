@@ -1,3 +1,5 @@
+console.log("🚀 GPT-GITHUB-API Build med endpoints:", ["/tree", "/file", "/branch", "/commit", "/pull"]);
+
 const express = require("express");
 const axios = require("axios");
 require("dotenv").config();
