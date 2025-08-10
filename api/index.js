@@ -1,27 +1,22 @@
 const express = require("express");
 const axios = require("axios");
-const serverless = require("serverless-http");
-
 const app = express();
+
+// === Konfiguration ===
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-
-console.log("🚀 GPT-GITHUB-API Build med endpoints: /ping, /tree, /file, /branch, /commit, /pull");
-
 app.use(express.json());
 
-// Failsafe om GITHUB_TOKEN saknas
+console.log("🚀 GPT-GITHUB-API startad med endpoints: /ping, /tree, /file, /branch, /commit, /pull");
+
 if (!GITHUB_TOKEN) {
   console.warn("⚠️ Varning: GITHUB_TOKEN saknas! Endast /ping fungerar korrekt.");
 }
 
 const headers = GITHUB_TOKEN
-  ? {
-      Authorization: `Bearer ${GITHUB_TOKEN}`,
-      "User-Agent": "GPT-GITHUB-API"
-    }
+  ? { Authorization: `Bearer ${GITHUB_TOKEN}`, "User-Agent": "GPT-GITHUB-API" }
   : {};
 
-// Test-endpoint
+// === Endpoints ===
 app.get("/ping", (req, res) => {
   res.json({
     message: "pong",
@@ -30,7 +25,6 @@ app.get("/ping", (req, res) => {
   });
 });
 
-// Lista filer
 app.get("/tree", async (req, res) => {
   const { owner, repo, path = "" } = req.query;
   if (!owner || !repo) return res.status(400).json({ error: "owner och repo krävs" });
@@ -43,7 +37,6 @@ app.get("/tree", async (req, res) => {
   }
 });
 
-// Hämta fil
 app.get("/file", async (req, res) => {
   const { owner, repo, path } = req.query;
   if (!owner || !repo || !path) return res.status(400).json({ error: "owner, repo och path krävs" });
@@ -57,7 +50,6 @@ app.get("/file", async (req, res) => {
   }
 });
 
-// Skapa branch
 app.post("/branch", async (req, res) => {
   const { owner, repo } = req.query;
   const { branchName, fromSha } = req.body;
@@ -71,7 +63,6 @@ app.post("/branch", async (req, res) => {
   }
 });
 
-// Commit fil
 app.put("/commit", async (req, res) => {
   const { owner, repo } = req.query;
   const { path, message, content, branch, sha } = req.body;
@@ -87,7 +78,6 @@ app.put("/commit", async (req, res) => {
   }
 });
 
-// Skapa Pull Request
 app.post("/pull", async (req, res) => {
   const { owner, repo } = req.query;
   const { title, head, base, body } = req.body;
@@ -101,5 +91,5 @@ app.post("/pull", async (req, res) => {
   }
 });
 
+// === Exportera Express-appen till Vercel ===
 module.exports = app;
-module.exports.handler = serverless(app);
