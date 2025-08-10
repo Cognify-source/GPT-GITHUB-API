@@ -125,6 +125,42 @@ app.post("/pull", async (req, res) => {
   }
 });
 
+// Mergar en pull request
+app.put("/merge", async (req, res) => {
+  const { owner, repo } = req.query;
+  const { pull_number, merge_method } = req.body;
+  if (!owner || !repo || !pull_number) {
+    return res.status(400).json({ error: "owner, repo och pull_number krävs" });
+  }
+  try {
+    const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${pull_number}/merge`;
+    const response = await axios.put(url, { merge_method: merge_method || "merge" }, { headers });
+    res.json(response.data);
+  } catch (err) {
+    console.error("🌩️ GitHub API error (merge):", err.message);
+    console.error(err.response?.data);
+    res.status(err.response?.status || 500).json({ error: err.message, githubResponse: err.response?.data || null });
+  }
+});
+
+// Tar bort en branch
+app.delete("/delete-branch", async (req, res) => {
+  const { owner, repo } = req.query;
+  const { branchName } = req.body;
+  if (!owner || !repo || !branchName) {
+    return res.status(400).json({ error: "owner, repo och branchName krävs" });
+  }
+  try {
+    const url = `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branchName}`;
+    const response = await axios.delete(url, { headers });
+    res.json({ message: `Branch '${branchName}' deleted successfully.` });
+  } catch (err) {
+    console.error("🌩️ GitHub API error (delete-branch):", err.message);
+    console.error(err.response?.data);
+    res.status(err.response?.status || 500).json({ error: err.message, githubResponse: err.response?.data || null });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 GPT-GITHUB-API is running on port ${PORT}`);
 });
