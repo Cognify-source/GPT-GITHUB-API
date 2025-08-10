@@ -2,7 +2,6 @@ const express = require("express");
 const axios = require("axios");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
 console.log("🚀 GPT-GITHUB-API Build med endpoints: /ping, /tree, /file, /branch, /commit, /pull");
@@ -11,7 +10,7 @@ app.use(express.json());
 
 // Failsafe om GITHUB_TOKEN saknas
 if (!GITHUB_TOKEN) {
-  console.warn("⚠️ Varning: GITHUB_TOKEN saknas! Endast /ping kommer att fungera korrekt.");
+  console.warn("⚠️ Varning: GITHUB_TOKEN saknas! Endast /ping fungerar korrekt.");
 }
 
 const headers = GITHUB_TOKEN
@@ -33,9 +32,7 @@ app.get("/ping", (req, res) => {
 // Lista filer i repo
 app.get("/tree", async (req, res) => {
   const { owner, repo, path = "" } = req.query;
-  if (!owner || !repo) {
-    return res.status(400).json({ error: "owner och repo krävs" });
-  }
+  if (!owner || !repo) return res.status(400).json({ error: "owner och repo krävs" });
   try {
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
     const response = await axios.get(url, { headers });
@@ -48,9 +45,7 @@ app.get("/tree", async (req, res) => {
 // Hämta filinnehåll
 app.get("/file", async (req, res) => {
   const { owner, repo, path } = req.query;
-  if (!owner || !repo || !path) {
-    return res.status(400).json({ error: "owner, repo och path krävs" });
-  }
+  if (!owner || !repo || !path) return res.status(400).json({ error: "owner, repo och path krävs" });
   try {
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
     const response = await axios.get(url, { headers });
@@ -65,9 +60,7 @@ app.get("/file", async (req, res) => {
 app.post("/branch", async (req, res) => {
   const { owner, repo } = req.query;
   const { branchName, fromSha } = req.body;
-  if (!owner || !repo || !branchName || !fromSha) {
-    return res.status(400).json({ error: "owner, repo, branchName och fromSha krävs" });
-  }
+  if (!owner || !repo || !branchName || !fromSha) return res.status(400).json({ error: "owner, repo, branchName och fromSha krävs" });
   try {
     const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
     const response = await axios.post(url, { ref: `refs/heads/${branchName}`, sha: fromSha }, { headers });
@@ -97,9 +90,7 @@ app.put("/commit", async (req, res) => {
 app.post("/pull", async (req, res) => {
   const { owner, repo } = req.query;
   const { title, head, base, body } = req.body;
-  if (!owner || !repo || !title || !head || !base) {
-    return res.status(400).json({ error: "owner, repo, title, head och base krävs" });
-  }
+  if (!owner || !repo || !title || !head || !base) return res.status(400).json({ error: "owner, repo, title, head och base krävs" });
   try {
     const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
     const response = await axios.post(url, { title, head, base, body }, { headers });
@@ -109,6 +100,4 @@ app.post("/pull", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Server igång på port ${PORT}`);
-});
+module.exports = app;
