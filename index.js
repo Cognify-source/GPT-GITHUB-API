@@ -1,4 +1,7 @@
 console.log("🚀 GPT-GITHUB-API Build med endpoints:", ["/tree", "/file", "/branch", "/commit", "/pull"]);
+app.get("/ping", (req, res) => {
+  res.json({ message: "pong", endpoints: ["/tree", "/file", "/branch", "/commit", "/pull"] });
+});
 
 const express = require("express");
 const axios = require("axios");
