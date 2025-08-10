@@ -19,6 +19,11 @@ const headers = {
 // Aktivera JSON-body parsing för alla endpoints
 app.use(express.json());
 
+// Test-route
+app.get("/ping", (req, res) => {
+  res.json({ status: "API is running", time: new Date().toISOString() });
+});
+
 app.get("/tree", async (req, res) => {
   const { owner, repo, path = "" } = req.query;
   if (!owner || !repo) {
