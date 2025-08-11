@@ -3,6 +3,7 @@ const axios = require("axios");
 require("dotenv").config();
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
 if (!GITHUB_TOKEN) {
@@ -17,12 +18,11 @@ const headers = {
 
 app.use(express.json());
 
-// Health check
 app.get("/ping", (req, res) => {
   res.json({ status: "API is running", time: new Date().toISOString() });
 });
 
-// List repo files
+// ✅ NY ENDPOINT: /files
 app.get("/files", async (req, res) => {
   const { owner, repo, path = "" } = req.query;
   if (!owner || !repo) {
@@ -48,12 +48,12 @@ app.get("/files", async (req, res) => {
   }
 });
 
-// List repo tree
 app.get("/tree", async (req, res) => {
   const { owner, repo, path = "" } = req.query;
   if (!owner || !repo) {
     return res.status(400).json({ error: "owner och repo krävs som query-parametrar" });
   }
+
   try {
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
     const response = await axios.get(url, { headers });
@@ -68,7 +68,6 @@ app.get("/tree", async (req, res) => {
   }
 });
 
-// Get file content + line count
 app.get("/file", async (req, res) => {
   const { owner, repo, path } = req.query;
   if (!owner || !repo || !path) {
@@ -111,7 +110,6 @@ app.get("/file", async (req, res) => {
   }
 });
 
-// Create branch
 app.post("/branch", async (req, res) => {
   const { owner, repo } = req.query;
   const { branchName, fromSha } = req.body;
@@ -134,7 +132,6 @@ app.post("/branch", async (req, res) => {
   }
 });
 
-// Commit file
 app.put("/commit", async (req, res) => {
   const { owner, repo } = req.query;
   const { path, message, content, branch, sha } = req.body;
@@ -152,7 +149,6 @@ app.put("/commit", async (req, res) => {
   }
 });
 
-// Create PR
 app.post("/pull", async (req, res) => {
   const { owner, repo } = req.query;
   const { title, head, base, body } = req.body;
@@ -170,7 +166,6 @@ app.post("/pull", async (req, res) => {
   }
 });
 
-// Merge PR
 app.put("/merge", async (req, res) => {
   const { owner, repo } = req.query;
   const { pull_number, merge_method } = req.body;
@@ -188,7 +183,6 @@ app.put("/merge", async (req, res) => {
   }
 });
 
-// Delete branch
 app.delete("/delete-branch", async (req, res) => {
   const { owner, repo } = req.query;
   const { branchName } = req.body;
@@ -197,7 +191,7 @@ app.delete("/delete-branch", async (req, res) => {
   }
   try {
     const url = `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branchName}`;
-    await axios.delete(url, { headers });
+    const response = await axios.delete(url, { headers });
     res.json({ message: `Branch '${branchName}' deleted successfully.` });
   } catch (err) {
     console.error("🌩️ GitHub API error (delete-branch):", err.message);
@@ -206,24 +200,27 @@ app.delete("/delete-branch", async (req, res) => {
   }
 });
 
-// List branches
-app.get("/branches", async (req, res) => {
+app.get('/branches', async (req, res) => {
   const { owner, repo } = req.query;
+
   if (!owner || !repo) {
     return res.status(400).json({ error: "owner och repo krävs som query-parametrar" });
   }
+
   try {
     const url = `https://api.github.com/repos/${owner}/${repo}/branches`;
     const response = await fetch(url, {
       headers: {
         Authorization: `token ${process.env.GITHUB_TOKEN}`,
-        Accept: "application/vnd.github.v3+json"
+        Accept: 'application/vnd.github.v3+json'
       }
     });
+
     if (!response.ok) {
       const error = await response.text();
       return res.status(response.status).json({ error });
     }
+
     const data = await response.json();
     const branchNames = data.map(branch => branch.name);
     res.json({ branches: branchNames });
@@ -232,5 +229,6 @@ app.get("/branches", async (req, res) => {
   }
 });
 
-// Export app for Vercel serverless
-module.exports = app;
+app.listen(PORT, () => {
+  console.log(`🚀 GPT-GITHUB-API is running on port ${PORT}`);
+});
