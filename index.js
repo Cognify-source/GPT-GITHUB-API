@@ -16,10 +16,8 @@ const headers = {
   "User-Agent": "GPT-GITHUB-API"
 };
 
-// Aktivera JSON-body parsing för alla endpoints
 app.use(express.json());
 
-// Test-route
 app.get("/ping", (req, res) => {
   res.json({ status: "API is running", time: new Date().toISOString() });
 });
@@ -54,10 +52,11 @@ app.get("/file", async (req, res) => {
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
     const response = await axios.get(url, { headers });
 
-    // Dekoda innehållet men behåll även metadata
-    const decodedContent = Buffer.from(response.data.content, "base64").toString("utf8");
+    if (!response.data.content) {
+      return res.status(400).json({ error: "Filen saknar innehåll eller är inte en fil (content saknas i GitHub-svar)." });
+    }
 
-    // 🔹 Nytt: räkna rader i den dekodade texten
+    const decodedContent = Buffer.from(response.data.content, "base64").toString("utf8");
     const lineCount = decodedContent.split(/\r\n|\r|\n/).length;
 
     res.json({
@@ -65,7 +64,7 @@ app.get("/file", async (req, res) => {
       path: response.data.path,
       sha: response.data.sha,
       size: response.data.size,
-      line_count: lineCount, // 🔹 Skickas med i svaret
+      line_count: lineCount,
       content: decodedContent,
       encoding: response.data.encoding,
       url: response.data.url,
@@ -74,7 +73,7 @@ app.get("/file", async (req, res) => {
       download_url: response.data.download_url
     });
   } catch (err) {
-    console.error("🌩️ GitHub API error (file):", err.message);
+    console.error("\ud83c\udf29\ufe0f GitHub API error (file):", err.message);
     console.error(err.response?.data);
     res.status(err.response?.status || 500).json({
       error: err.message,
@@ -83,8 +82,6 @@ app.get("/file", async (req, res) => {
   }
 });
 
-
-// Skapa branch
 app.post("/branch", async (req, res) => {
   const { owner, repo } = req.query;
   const { branchName, fromSha } = req.body;
@@ -101,13 +98,12 @@ app.post("/branch", async (req, res) => {
     const response = await axios.post(url, { ref: `refs/heads/${branchName}`, sha }, { headers });
     res.json(response.data);
   } catch (err) {
-    console.error("🌩️ GitHub API error (branch):", err.message);
+    console.error("\ud83c\udf29\ufe0f GitHub API error (branch):", err.message);
     console.error(err.response?.data);
     res.status(err.response?.status || 500).json({ error: err.message, githubResponse: err.response?.data || null });
   }
 });
 
-// Skapa eller uppdatera fil
 app.put("/commit", async (req, res) => {
   const { owner, repo } = req.query;
   const { path, message, content, branch, sha } = req.body;
@@ -119,13 +115,12 @@ app.put("/commit", async (req, res) => {
     const response = await axios.put(url, { message, content, branch, sha }, { headers });
     res.json(response.data);
   } catch (err) {
-    console.error("🌩️ GitHub API error (commit):", err.message);
+    console.error("\ud83c\udf29\ufe0f GitHub API error (commit):", err.message);
     console.error(err.response?.data);
     res.status(err.response?.status || 500).json({ error: err.message, githubResponse: err.response?.data || null });
   }
 });
 
-// Skapa pull request
 app.post("/pull", async (req, res) => {
   const { owner, repo } = req.query;
   const { title, head, base, body } = req.body;
@@ -137,13 +132,12 @@ app.post("/pull", async (req, res) => {
     const response = await axios.post(url, { title, head, base, body }, { headers });
     res.json(response.data);
   } catch (err) {
-    console.error("🌩️ GitHub API error (pull):", err.message);
+    console.error("\ud83c\udf29\ufe0f GitHub API error (pull):", err.message);
     console.error(err.response?.data);
     res.status(err.response?.status || 500).json({ error: err.message, githubResponse: err.response?.data || null });
   }
 });
 
-// Mergar en pull request
 app.put("/merge", async (req, res) => {
   const { owner, repo } = req.query;
   const { pull_number, merge_method } = req.body;
@@ -155,13 +149,12 @@ app.put("/merge", async (req, res) => {
     const response = await axios.put(url, { merge_method: merge_method || "merge" }, { headers });
     res.json(response.data);
   } catch (err) {
-    console.error("🌩️ GitHub API error (merge):", err.message);
+    console.error("\ud83c\udf29\ufe0f GitHub API error (merge):", err.message);
     console.error(err.response?.data);
     res.status(err.response?.status || 500).json({ error: err.message, githubResponse: err.response?.data || null });
   }
 });
 
-// Tar bort en branch
 app.delete("/delete-branch", async (req, res) => {
   const { owner, repo } = req.query;
   const { branchName } = req.body;
@@ -173,13 +166,12 @@ app.delete("/delete-branch", async (req, res) => {
     const response = await axios.delete(url, { headers });
     res.json({ message: `Branch '${branchName}' deleted successfully.` });
   } catch (err) {
-    console.error("🌩️ GitHub API error (delete-branch):", err.message);
+    console.error("\ud83c\udf29\ufe0f GitHub API error (delete-branch):", err.message);
     console.error(err.response?.data);
     res.status(err.response?.status || 500).json({ error: err.message, githubResponse: err.response?.data || null });
   }
 });
 
-// List all branches in a repo
 app.get('/branches', async (req, res) => {
   const { owner, repo } = req.query;
 
@@ -202,7 +194,6 @@ app.get('/branches', async (req, res) => {
     }
 
     const data = await response.json();
-    // Return only branch names for simplicity
     const branchNames = data.map(branch => branch.name);
     res.json({ branches: branchNames });
   } catch (error) {
