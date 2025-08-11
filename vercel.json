@@ -4,13 +4,6 @@
     { "src": "index.js", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/tree", "dest": "/index.js" },
-    { "src": "/file", "dest": "/index.js" },
-    { "src": "/branch", "dest": "/index.js" },
-    { "src": "/commit", "dest": "/index.js" },
-    { "src": "/pull", "dest": "/index.js" },
-    { "src": "/merge", "dest": "/index.js" },
-    { "src": "/delete-branch", "dest": "/index.js" },
-    { "src": "/branches", "dest": "/index.js" }
+    { "src": "/.*", "dest": "/index.js" }
   ]
 }
