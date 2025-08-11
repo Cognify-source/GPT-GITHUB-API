@@ -3,7 +3,6 @@ const axios = require("axios");
 require("dotenv").config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
 if (!GITHUB_TOKEN) {
@@ -23,7 +22,7 @@ app.get("/ping", (req, res) => {
   res.json({ status: "API is running", time: new Date().toISOString() });
 });
 
-// 🆕 List repo files (restored for GPT)
+// List repo files
 app.get("/files", async (req, res) => {
   const { owner, repo, path = "" } = req.query;
   if (!owner || !repo) {
@@ -49,7 +48,7 @@ app.get("/files", async (req, res) => {
   }
 });
 
-// List repo tree (unchanged)
+// List repo tree
 app.get("/tree", async (req, res) => {
   const { owner, repo, path = "" } = req.query;
   if (!owner || !repo) {
@@ -233,6 +232,5 @@ app.get("/branches", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 GPT-GITHUB-API is running on port ${PORT}`);
-});
+// Export app for Vercel serverless
+module.exports = app;
