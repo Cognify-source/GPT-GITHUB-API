@@ -57,11 +57,15 @@ app.get("/file", async (req, res) => {
     // Dekoda innehållet men behåll även metadata
     const decodedContent = Buffer.from(response.data.content, "base64").toString("utf8");
 
+    // 🔹 Nytt: räkna rader i den dekodade texten
+    const lineCount = decodedContent.split(/\r\n|\r|\n/).length;
+
     res.json({
       name: response.data.name,
       path: response.data.path,
-      sha: response.data.sha, // 🔹 Här kommer SHA med
+      sha: response.data.sha,
       size: response.data.size,
+      line_count: lineCount, // 🔹 Skickas med i svaret
       content: decodedContent,
       encoding: response.data.encoding,
       url: response.data.url,
@@ -78,6 +82,7 @@ app.get("/file", async (req, res) => {
     });
   }
 });
+
 
 // Skapa branch
 app.post("/branch", async (req, res) => {
