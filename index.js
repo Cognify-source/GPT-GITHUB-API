@@ -54,8 +54,21 @@ app.get("/file", async (req, res) => {
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
     const response = await axios.get(url, { headers });
 
-    const content = Buffer.from(response.data.content, "base64").toString("utf8");
-    res.json({ name: response.data.name, path, content });
+    // Dekoda innehållet men behåll även metadata
+    const decodedContent = Buffer.from(response.data.content, "base64").toString("utf8");
+
+    res.json({
+      name: response.data.name,
+      path: response.data.path,
+      sha: response.data.sha, // 🔹 Här kommer SHA med
+      size: response.data.size,
+      content: decodedContent,
+      encoding: response.data.encoding,
+      url: response.data.url,
+      html_url: response.data.html_url,
+      git_url: response.data.git_url,
+      download_url: response.data.download_url
+    });
   } catch (err) {
     console.error("🌩️ GitHub API error (file):", err.message);
     console.error(err.response?.data);
