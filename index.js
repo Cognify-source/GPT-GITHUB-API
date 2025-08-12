@@ -21,8 +21,6 @@ const headers = {
   "User-Agent": "GPT-GITHUB-API"
 };
 
-let repoCache = null;
-
 // Middleware för att spara rå body (för signaturverifiering)
 app.use(
   express.json({
@@ -42,46 +40,32 @@ function verifySignature(rawBody, signature) {
   );
 }
 
-// Rekursiv hämtning av repo-innehåll
-async function fetchRecursive(path = "") {
-  const url = `https://api.github.com/repos/${DEFAULT_OWNER}/${DEFAULT_REPO}/contents/${path}`;
+// Ny funktion för att hämta senaste HEAD-commit
+async function fetchLatestHead(branch = "main") {
+  const url = `https://api.github.com/repos/${DEFAULT_OWNER}/${DEFAULT_REPO}/git/ref/heads/${branch}`;
   const response = await axios.get(url, { headers });
-
-  let results = [];
-  for (const item of response.data) {
-    if (item.type === "dir") {
-      results.push({ ...item, children: await fetchRecursive(item.path) });
-    } else if (item.type === "file") {
-      // Hämta filens innehåll i Base64
-      const fileResp = await axios.get(item.url, { headers });
-      results.push({ ...item, content: fileResp.data.content });
-    } else {
-      results.push(item);
-    }
-  }
-  return results;
+  return response.data.object.sha; // HEAD commit SHA
 }
 
-async function syncRepo() {
-  try {
-    repoCache = await fetchRecursive("");
-    console.log(`✅ Repo-cache uppdaterad (rekursivt)`);
-  } catch (err) {
-    console.error("❌ Misslyckades att synka repo:", err.message);
-  }
-}
-
-// Webhook endpoint
+// Webhook endpoint – nu med HEAD-hämtning istället för repo-cache
 app.post("/webhook/github", async (req, res) => {
   const signature = req.headers["x-hub-signature-256"];
-
   if (!verifySignature(req.rawBody, signature)) {
     return res.status(401).json({ error: "Invalid signature" });
   }
 
-  console.log("🔔 Push-event mottaget – synkar repo...");
-  await syncRepo();
-  res.json({ ok: true });
+  console.log("🔔 Push-event mottaget – hämtar senaste HEAD...");
+
+  try {
+    const latestSha = await fetchLatestHead("main");
+    console.log(`✅ Senaste commit på main: ${latestSha}`);
+
+    // Här kan du koppla in ditt nästa steg, t.ex. trigga GPT-PR-flödet
+    res.json({ ok: true, head: latestSha });
+  } catch (err) {
+    console.error("❌ Misslyckades att hämta HEAD:", err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Healthcheck
@@ -89,11 +73,7 @@ app.get("/ping", (req, res) => {
   res.json({ status: "API is running", time: new Date().toISOString() });
 });
 
-// Endpoint för att hämta cachet repo-innehåll
-app.get("/repo-cache", (req, res) => {
-  if (!repoCache) return res.status(404).json({ error: "Cache not loaded" });
-  res.json(repoCache);
-});
+// Endpoint för att hämta repo-cache är borttagen eftersom vi inte längre använder cache
 
 /* ----------- BEFINTLIGA ENDPOINTS ----------- */
 
@@ -355,5 +335,4 @@ app.get("/branches", async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 GPT-GITHUB-API is running on port ${PORT}`);
-  syncRepo(); // Synka direkt vid start
 });
