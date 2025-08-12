@@ -50,17 +50,20 @@ async function fetchLatestHead(branch = "main") {
 // Webhook endpoint – nu med HEAD-hämtning istället för repo-cache
 app.post("/webhook/github", async (req, res) => {
   const signature = req.headers["x-hub-signature-256"];
+
   if (!verifySignature(req.rawBody, signature)) {
     return res.status(401).json({ error: "Invalid signature" });
   }
 
   console.log("🔔 Push-event mottaget – hämtar senaste HEAD...");
-
   try {
     const latestSha = await fetchLatestHead("main");
     console.log(`✅ Senaste commit på main: ${latestSha}`);
 
-    // Här kan du koppla in ditt nästa steg, t.ex. trigga GPT-PR-flödet
+    // Här kan du koppla in din egen logik, t.ex:
+    // triggerBuild(latestSha);
+    // triggerPullRequest(latestSha);
+
     res.json({ ok: true, head: latestSha });
   } catch (err) {
     console.error("❌ Misslyckades att hämta HEAD:", err.message);
@@ -72,8 +75,6 @@ app.post("/webhook/github", async (req, res) => {
 app.get("/ping", (req, res) => {
   res.json({ status: "API is running", time: new Date().toISOString() });
 });
-
-// Endpoint för att hämta repo-cache är borttagen eftersom vi inte längre använder cache
 
 /* ----------- BEFINTLIGA ENDPOINTS ----------- */
 
