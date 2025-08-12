@@ -43,25 +43,29 @@ async function syncRepo() {
   }
 }
 
+// 🟢 Webhook måste få RAW body för korrekt signatur
+app.post(
+  "/webhook/github",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    const signature = req.headers["x-hub-signature-256"];
+    const rawBody = req.body.toString();
+
+    if (!verifySignature(rawBody, signature)) {
+      return res.status(401).json({ error: "Invalid signature" });
+    }
+
+    console.log("🔔 Push-event mottaget – synkar repo...");
+    await syncRepo();
+    res.json({ ok: true });
+  }
+);
+
 app.use(express.json());
 
 // Healthcheck
 app.get("/ping", (req, res) => {
   res.json({ status: "API is running", time: new Date().toISOString() });
-});
-
-// Webhook endpoint – triggar automatisk synk
-app.post("/webhook/github", async (req, res) => {
-  const signature = req.headers["x-hub-signature-256"];
-  const rawBody = JSON.stringify(req.body);
-
-  if (!verifySignature(rawBody, signature)) {
-    return res.status(401).json({ error: "Invalid signature" });
-  }
-
-  console.log("🔔 Push-event mottaget – synkar repo...");
-  await syncRepo();
-  res.json({ ok: true });
 });
 
 // Endpoint för att hämta cachet repo-innehåll
