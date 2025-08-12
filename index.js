@@ -23,6 +23,16 @@ const headers = {
 
 let repoCache = null;
 
+// Middleware för att spara rå body (för signaturverifiering)
+app.use(
+  express.json({
+    type: "*/*",
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString();
+    }
+  })
+);
+
 function verifySignature(rawBody, signature) {
   const hmac = crypto.createHmac("sha256", GITHUB_WEBHOOK_SECRET);
   const digest = `sha256=${hmac.update(rawBody).digest("hex")}`;
@@ -32,36 +42,47 @@ function verifySignature(rawBody, signature) {
   );
 }
 
+// Rekursiv hämtning av repo-innehåll
+async function fetchRecursive(path = "") {
+  const url = `https://api.github.com/repos/${DEFAULT_OWNER}/${DEFAULT_REPO}/contents/${path}`;
+  const response = await axios.get(url, { headers });
+
+  let results = [];
+  for (const item of response.data) {
+    if (item.type === "dir") {
+      results.push({ ...item, children: await fetchRecursive(item.path) });
+    } else if (item.type === "file") {
+      // Hämta filens innehåll i Base64
+      const fileResp = await axios.get(item.url, { headers });
+      results.push({ ...item, content: fileResp.data.content });
+    } else {
+      results.push(item);
+    }
+  }
+  return results;
+}
+
 async function syncRepo() {
   try {
-    const url = `https://api.github.com/repos/${DEFAULT_OWNER}/${DEFAULT_REPO}/contents`;
-    const response = await axios.get(url, { headers });
-    repoCache = response.data;
-    console.log(`✅ Repo-cache uppdaterad (${repoCache.length} objekt)`);
+    repoCache = await fetchRecursive("");
+    console.log(`✅ Repo-cache uppdaterad (rekursivt)`);
   } catch (err) {
     console.error("❌ Misslyckades att synka repo:", err.message);
   }
 }
 
-// 🟢 Webhook måste få RAW body för korrekt signatur
-app.post(
-  "/webhook/github",
-  express.raw({ type: "application/json" }),
-  async (req, res) => {
-    const signature = req.headers["x-hub-signature-256"];
-    const rawBody = req.body.toString();
+// Webhook endpoint
+app.post("/webhook/github", async (req, res) => {
+  const signature = req.headers["x-hub-signature-256"];
 
-    if (!verifySignature(rawBody, signature)) {
-      return res.status(401).json({ error: "Invalid signature" });
-    }
-
-    console.log("🔔 Push-event mottaget – synkar repo...");
-    await syncRepo();
-    res.json({ ok: true });
+  if (!verifySignature(req.rawBody, signature)) {
+    return res.status(401).json({ error: "Invalid signature" });
   }
-);
 
-app.use(express.json());
+  console.log("🔔 Push-event mottaget – synkar repo...");
+  await syncRepo();
+  res.json({ ok: true });
+});
 
 // Healthcheck
 app.get("/ping", (req, res) => {
