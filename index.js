@@ -26,9 +26,9 @@ let repoCache = null;
 function verifySignature(rawBody, signature) {
   const hmac = crypto.createHmac("sha256", GITHUB_WEBHOOK_SECRET);
   const digest = `sha256=${hmac.update(rawBody).digest("hex")}`;
-  return crypto.timingSafeEqual(
-    Buffer.from(signature || ""),
-    Buffer.from(digest)
+  return (
+    signature &&
+    crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest))
   );
 }
 
@@ -70,7 +70,7 @@ app.get("/repo-cache", (req, res) => {
   res.json(repoCache);
 });
 
-/* ----------- DINA BEFINTLIGA ENDPOINTS ----------- */
+/* ----------- BEFINTLIGA ENDPOINTS ----------- */
 
 // List files in repo
 app.get("/tree", async (req, res) => {
