@@ -1,12 +1,13 @@
 const express = require("express");
 const axios = require("axios");
+const crypto = require("crypto");
 require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
-// Default repo-info
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET || "";
 const DEFAULT_OWNER = "Cognify-source";
 const DEFAULT_REPO = "Koppsnipern";
 
@@ -20,12 +21,56 @@ const headers = {
   "User-Agent": "GPT-GITHUB-API"
 };
 
+let repoCache = null;
+
+function verifySignature(rawBody, signature) {
+  const hmac = crypto.createHmac("sha256", GITHUB_WEBHOOK_SECRET);
+  const digest = `sha256=${hmac.update(rawBody).digest("hex")}`;
+  return crypto.timingSafeEqual(
+    Buffer.from(signature || ""),
+    Buffer.from(digest)
+  );
+}
+
+async function syncRepo() {
+  try {
+    const url = `https://api.github.com/repos/${DEFAULT_OWNER}/${DEFAULT_REPO}/contents`;
+    const response = await axios.get(url, { headers });
+    repoCache = response.data;
+    console.log(`✅ Repo-cache uppdaterad (${repoCache.length} objekt)`);
+  } catch (err) {
+    console.error("❌ Misslyckades att synka repo:", err.message);
+  }
+}
+
 app.use(express.json());
 
 // Healthcheck
 app.get("/ping", (req, res) => {
   res.json({ status: "API is running", time: new Date().toISOString() });
 });
+
+// Webhook endpoint – triggar automatisk synk
+app.post("/webhook/github", async (req, res) => {
+  const signature = req.headers["x-hub-signature-256"];
+  const rawBody = JSON.stringify(req.body);
+
+  if (!verifySignature(rawBody, signature)) {
+    return res.status(401).json({ error: "Invalid signature" });
+  }
+
+  console.log("🔔 Push-event mottaget – synkar repo...");
+  await syncRepo();
+  res.json({ ok: true });
+});
+
+// Endpoint för att hämta cachet repo-innehåll
+app.get("/repo-cache", (req, res) => {
+  if (!repoCache) return res.status(404).json({ error: "Cache not loaded" });
+  res.json(repoCache);
+});
+
+/* ----------- DINA BEFINTLIGA ENDPOINTS ----------- */
 
 // List files in repo
 app.get("/tree", async (req, res) => {
@@ -61,10 +106,15 @@ app.get("/file", async (req, res) => {
     const response = await axios.get(url, { headers });
 
     if (!response.data.content) {
-      return res.status(400).json({ error: "Filen saknar innehåll eller är inte en fil" });
+      return res
+        .status(400)
+        .json({ error: "Filen saknar innehåll eller är inte en fil" });
     }
 
-    const decodedContent = Buffer.from(response.data.content, "base64").toString("utf8");
+    const decodedContent = Buffer.from(
+      response.data.content,
+      "base64"
+    ).toString("utf8");
     const lineCount = decodedContent.split(/\r\n|\r|\n/).length;
 
     res.json({
@@ -104,10 +154,15 @@ app.get("/file-linecount", async (req, res) => {
     const response = await axios.get(url, { headers });
 
     if (!response.data.content) {
-      return res.status(400).json({ error: "Filen saknar innehåll eller är inte en fil" });
+      return res
+        .status(400)
+        .json({ error: "Filen saknar innehåll eller är inte en fil" });
     }
 
-    const decodedContent = Buffer.from(response.data.content, "base64").toString("utf8");
+    const decodedContent = Buffer.from(
+      response.data.content,
+      "base64"
+    ).toString("utf8");
     const lineCount = decodedContent.split(/\r\n|\r|\n/).length;
 
     res.json({ line_count: lineCount });
@@ -133,15 +188,24 @@ app.post("/branch", async (req, res) => {
   try {
     let sha = fromSha;
     if (!sha) {
-      const mainRef = await axios.get(`https://api.github.com/repos/${owner}/${repo}/git/ref/heads/main`, { headers });
+      const mainRef = await axios.get(
+        `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/main`,
+        { headers }
+      );
       sha = mainRef.data.object.sha;
     }
     const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
-    const response = await axios.post(url, { ref: `refs/heads/${branchName}`, sha }, { headers });
+    const response = await axios.post(
+      url,
+      { ref: `refs/heads/${branchName}`, sha },
+      { headers }
+    );
     res.json(response.data);
   } catch (err) {
     console.error("🌩️ GitHub API error (branch):", err.message);
-    res.status(err.response?.status || 500).json({ error: err.message, githubResponse: err.response?.data || null });
+    res
+      .status(err.response?.status || 500)
+      .json({ error: err.message, githubResponse: err.response?.data || null });
   }
 });
 
@@ -152,16 +216,24 @@ app.put("/commit", async (req, res) => {
   const { path, message, content, branch, sha } = req.body;
 
   if (!path || !message || !content || !branch) {
-    return res.status(400).json({ error: "path, message, content och branch krävs" });
+    return res
+      .status(400)
+      .json({ error: "path, message, content och branch krävs" });
   }
 
   try {
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-    const response = await axios.put(url, { message, content, branch, sha }, { headers });
+    const response = await axios.put(
+      url,
+      { message, content, branch, sha },
+      { headers }
+    );
     res.json(response.data);
   } catch (err) {
     console.error("🌩️ GitHub API error (commit):", err.message);
-    res.status(err.response?.status || 500).json({ error: err.message, githubResponse: err.response?.data || null });
+    res
+      .status(err.response?.status || 500)
+      .json({ error: err.message, githubResponse: err.response?.data || null });
   }
 });
 
@@ -177,11 +249,17 @@ app.post("/pull", async (req, res) => {
 
   try {
     const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
-    const response = await axios.post(url, { title, head, base, body }, { headers });
+    const response = await axios.post(
+      url,
+      { title, head, base, body },
+      { headers }
+    );
     res.json(response.data);
   } catch (err) {
     console.error("🌩️ GitHub API error (pull):", err.message);
-    res.status(err.response?.status || 500).json({ error: err.message, githubResponse: err.response?.data || null });
+    res
+      .status(err.response?.status || 500)
+      .json({ error: err.message, githubResponse: err.response?.data || null });
   }
 });
 
@@ -197,11 +275,17 @@ app.put("/merge", async (req, res) => {
 
   try {
     const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${pull_number}/merge`;
-    const response = await axios.put(url, { merge_method: merge_method || "merge" }, { headers });
+    const response = await axios.put(
+      url,
+      { merge_method: merge_method || "merge" },
+      { headers }
+    );
     res.json(response.data);
   } catch (err) {
     console.error("🌩️ GitHub API error (merge):", err.message);
-    res.status(err.response?.status || 500).json({ error: err.message, githubResponse: err.response?.data || null });
+    res
+      .status(err.response?.status || 500)
+      .json({ error: err.message, githubResponse: err.response?.data || null });
   }
 });
 
@@ -221,7 +305,9 @@ app.delete("/delete-branch", async (req, res) => {
     res.json({ message: `Branch '${branchName}' deleted successfully.` });
   } catch (err) {
     console.error("🌩️ GitHub API error (delete-branch):", err.message);
-    res.status(err.response?.status || 500).json({ error: err.message, githubResponse: err.response?.data || null });
+    res
+      .status(err.response?.status || 500)
+      .json({ error: err.message, githubResponse: err.response?.data || null });
   }
 });
 
@@ -233,14 +319,16 @@ app.get("/branches", async (req, res) => {
   try {
     const url = `https://api.github.com/repos/${owner}/${repo}/branches`;
     const response = await axios.get(url, { headers });
-    res.json({ branches: response.data.map(branch => branch.name) });
+    res.json({ branches: response.data.map((branch) => branch.name) });
   } catch (err) {
     console.error("🌩️ GitHub API error (branches):", err.message);
     res.status(err.response?.status || 500).json({ error: err.message });
   }
 });
 
-// Start server
+/* ------------------------------------ */
+
 app.listen(PORT, () => {
   console.log(`🚀 GPT-GITHUB-API is running on port ${PORT}`);
+  syncRepo(); // Synka direkt vid start
 });
